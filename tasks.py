@@ -1,0 +1,65 @@
+"""
+Invoke tasks for the server.
+"""
+
+# pyright: reportMissingImports=false
+try:
+    from invoke import Collection, task
+except ImportError as e:  # pragma: no cover
+    raise RuntimeError(
+        "Invoke is required to run these developer tasks. Install it with: pip install invoke"
+    ) from e
+import shutil
+from pathlib import Path
+import sys
+
+
+@task
+def start(c):
+    """Start the test log server.
+
+    Args:
+        config: Path to config file
+    """
+    server_dir = Path(__file__).parent
+    cmd_parts = [sys.executable, "-m", "testrift_server"]
+
+    print(f"Starting server from {server_dir}...")
+    print(f"Server will be available at http://localhost:8080 (or port from config)")
+    print(f"Press Ctrl+C to stop the server")
+    # Use c.cd to change directory instead of passing cwd (not supported in invoke 2.x)
+    with c.cd(str(server_dir)):
+        c.run(" ".join(cmd_parts))
+
+
+@task
+def clean(c):
+    """Remove local build artifacts (dist/, build/, *.egg-info/)."""
+    server_dir = Path(__file__).parent
+    for p in [server_dir / "dist", server_dir / "build"]:
+        if p.exists():
+            shutil.rmtree(p, ignore_errors=True)
+    for p in server_dir.glob("*.egg-info"):
+        if p.exists():
+            shutil.rmtree(p, ignore_errors=True)
+
+
+@task(pre=[clean])
+def build(c):
+    """Build the pip distribution (sdist + wheel). Requires: `pip install build`."""
+    server_dir = Path(__file__).parent
+    with c.cd(str(server_dir)):
+        c.run(f"{sys.executable} -m build")
+
+
+@task(pre=[build])
+def publish(c, repository="pypi"):
+    """Publish the pip distribution using twine. Requires: `pip install twine`.
+
+    Args:
+        repository: Twine repository name (default: pypi). Common values: pypi, testpypi.
+    """
+    server_dir = Path(__file__).parent
+    with c.cd(str(server_dir)):
+        c.run(f"{sys.executable} -m twine upload --repository {repository} dist/*")
+
