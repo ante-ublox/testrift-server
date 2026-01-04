@@ -15,11 +15,24 @@ if [ ! -f "$pyproject" ]; then
   exit 0
 fi
 
-pkg_version="$(sed -n 's/^version[[:space:]]*=[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' "$pyproject" | head -n 1)"
-if [ -z "${pkg_version:-}" ]; then
-  echo "ERROR: Unable to read package version from $pyproject (expected: version = \"X.Y.Z\")." >&2
-  exit 1
-fi
+pkg_version=""
+
+read_pyproject_version() {
+  # Extract version from the [project] section, tolerating indentation/whitespace.
+  # This avoids false matches from other sections.
+  awk '
+    BEGIN { in_project = 0 }
+    /^[[:space:]]*\[project\][[:space:]]*$/ { in_project = 1; next }
+    /^[[:space:]]*\[[^]]+\][[:space:]]*$/ { if (in_project) exit; next }
+    in_project && /^[[:space:]]*version[[:space:]]*=/ {
+      line = $0
+      sub(/^[[:space:]]*version[[:space:]]*=[[:space:]]*"/, "", line)
+      sub(/".*$/, "", line)
+      print line
+      exit
+    }
+  ' "$pyproject"
+}
 
 while read -r local_ref local_sha remote_ref remote_sha; do
   case "$local_ref" in
@@ -36,6 +49,14 @@ while read -r local_ref local_sha remote_ref remote_sha; do
           continue
           ;;
       esac
+
+      if [ -z "$pkg_version" ]; then
+        pkg_version="$(read_pyproject_version || true)"
+        if [ -z "${pkg_version:-}" ]; then
+          echo "ERROR: Unable to read package version from $pyproject (expected: [project] version = \"X.Y.Z\")." >&2
+          exit 1
+        fi
+      fi
 
       if [ "$tag_version" != "$pkg_version" ]; then
         echo "ERROR: Refusing to push tag '$tag' (version $tag_version) because pyproject.toml version is '$pkg_version'." >&2
