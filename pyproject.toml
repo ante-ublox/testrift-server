@@ -23,8 +23,8 @@ dependencies = [
 testrift-server = "testrift_server.cli:main"
 
 [project.urls]
-Repository = "https://github.com/antevir/testrift-server"
-Issues = "https://github.com/antevir/testrift-server/issues"
+Repository = "https://github.com/testrift/testrift-server"
+Issues = "https://github.com/testrift/testrift-server/issues"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
