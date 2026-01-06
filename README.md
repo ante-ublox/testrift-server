@@ -28,7 +28,7 @@ python -m testrift_server
 
 - The server loads configuration from either:
   - `testrift_server.yaml` in the directory you run `testrift-server` from, or
-  - `TESTRIFT_SERVER_YAML` (a filesystem path to a YAML config file; absolute path recommended).
+  - `TESTRIFT_SERVER_YAML` (a filesystem path to a YAML config file; absolute path recommended). If set, the server will **fail to start** if the file does not exist.
 
 For the full configuration reference, see [server_config.md](docs/server_config.md).
 

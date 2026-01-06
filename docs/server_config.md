@@ -9,7 +9,7 @@ The server can be configured using a YAML configuration file named `testrift_ser
 Use one of these options:
 
 - **Working directory config**: create `testrift_server.yaml` in the directory you run `testrift-server` from.
-- **Explicit config path**: set `TESTRIFT_SERVER_YAML` to the path of your config file (absolute path recommended).
+- **Explicit config path**: set `TESTRIFT_SERVER_YAML` to the path of your config file (absolute path recommended). If this is set, the server will **fail to start** if the file does not exist.
 
 Example (PowerShell):
 

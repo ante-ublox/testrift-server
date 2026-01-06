@@ -1,9 +1,11 @@
 import asyncio
+import argparse
 import hashlib
 import json
 import os
 import re
 import shutil
+import time
 import uuid
 import urllib.parse
 import zipfile
@@ -68,11 +70,14 @@ def load_config(config_path=None):
     global CONFIG_PATH_USED
     try:
         cwd_default = (Path.cwd() / "testrift_server.yaml").resolve()
+        env_override_used = False
+        explicit_path_used = False
 
         if config_path is None:
             # Allow override via environment variable for tests and custom setups
             env_path = os.getenv("TESTRIFT_SERVER_YAML")
             if env_path:
+                env_override_used = True
                 config_path = Path(env_path)
             elif cwd_default.exists():
                 # Prefer a config next to where the user runs the server from
@@ -80,6 +85,7 @@ def load_config(config_path=None):
             else:
                 config_path = DEFAULT_CONFIG_PATH
         else:
+            explicit_path_used = True
             config_path = Path(config_path)
 
         if not config_path.is_absolute():
@@ -143,6 +149,11 @@ def load_config(config_path=None):
         return config_data
 
     except FileNotFoundError:
+        # If the user explicitly requested a config (via env var or arg) we must fail hard.
+        if env_override_used or explicit_path_used:
+            print(f"ERROR: Configuration file '{config_path}' not found.")
+            sys.exit(1)
+
         print(f"Warning: Configuration file '{config_path}' not found. Using defaults.")
         CONFIG_PATH_USED = None
         return {
