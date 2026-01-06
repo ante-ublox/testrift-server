@@ -15,8 +15,20 @@ import sys
 
 
 @task
+def test(c):
+    """Run the server test suite (pytest)."""
+    server_dir = Path(__file__).parent
+    with c.cd(str(server_dir)):
+        # Install test deps if present (no-op if already installed)
+        req_dev = server_dir / "requirements-dev.txt"
+        if req_dev.exists():
+            c.run(f"{sys.executable} -m pip install -r requirements-dev.txt")
+        c.run(f"{sys.executable} -m pytest")
+
+
+@task
 def start(c):
-    """Start the test log server.
+    """Start the testrift server.
 
     Args:
         config: Path to config file
