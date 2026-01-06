@@ -8,13 +8,13 @@ The server can be configured using a YAML configuration file named `testrift_ser
 
 Use one of these options:
 
-- **Working directory config (recommended)**: create `testrift_server.yaml` in the directory you run `testrift-server` from.
-- **Explicit config path**: set `TESTRIFT_SERVER_CONFIG` to the path of your config file (absolute path recommended).
+- **Working directory config**: create `testrift_server.yaml` in the directory you run `testrift-server` from.
+- **Explicit config path**: set `TESTRIFT_SERVER_YAML` to the path of your config file (absolute path recommended).
 
 Example (PowerShell):
 
 ```powershell
-$env:TESTRIFT_SERVER_CONFIG = "C:\\path\\to\\testrift_server.yaml"
+$env:TESTRIFT_SERVER_YAML = "C:\\path\\to\\testrift_server.yaml"
 testrift-server
 ```
 
@@ -48,6 +48,11 @@ attachments:
 ```
 
 ## Configuration Options
+
+### Path resolution
+
+- `data.directory` is resolved relative to the **directory containing the config file**.
+- If you run without a config file (packaged defaults), the default data directory is `./data` in your current working directory.
 
 ### Server Settings
 

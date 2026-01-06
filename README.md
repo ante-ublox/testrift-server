@@ -2,6 +2,10 @@
 
 Python server for TestRift real-time test runs: live log streaming, result storage, and a web UI for browsing and analysis.
 
+### Experimental
+
+TestRift is currently in an **experimental** phase. APIs, configuration, and data formats may change at any time **without notice**.
+
 ### Install
 
 ```bash
@@ -24,6 +28,8 @@ python -m testrift_server
 
 - The server loads configuration from either:
   - `testrift_server.yaml` in the directory you run `testrift-server` from, or
-  - `TESTRIFT_SERVER_CONFIG` (a filesystem path to a YAML config file; absolute path recommended).
+  - `TESTRIFT_SERVER_YAML` (a filesystem path to a YAML config file; absolute path recommended).
+
+For the full configuration reference, see [server_config.md](docs/server_config.md).
 
 

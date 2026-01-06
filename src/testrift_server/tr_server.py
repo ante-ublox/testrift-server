@@ -65,7 +65,7 @@ def load_config(config_path=None):
 
         if config_path is None:
             # Allow override via environment variable for tests and custom setups
-            env_path = os.getenv("TESTRIFT_SERVER_CONFIG")
+            env_path = os.getenv("TESTRIFT_SERVER_YAML")
             if env_path:
                 config_path = Path(env_path)
             elif cwd_default.exists():
