@@ -2,6 +2,8 @@
 
 Python server for TestRift real-time test runs: live log streaming, result storage, and a web UI for browsing and analysis.
 
+![Tests](https://github.com/testrift/testrift-server/actions/workflows/tests.yml/badge.svg)
+
 ### Experimental
 
 TestRift is currently in an **experimental** phase. APIs, configuration, and data formats may change at any time **without notice**.
