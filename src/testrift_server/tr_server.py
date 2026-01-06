@@ -10,6 +10,8 @@ import zipfile
 import aiofiles
 import yaml
 import sys
+import urllib.request
+import urllib.error
 from aiohttp import web, WSMsgType, MultipartReader
 from datetime import datetime, timedelta, UTC
 from pathlib import Path
@@ -21,6 +23,9 @@ DEFAULT_CONFIG_PATH = BASE_DIR / "testrift_server.yaml"
 TEMPLATES_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
 GROUP_HASH_LENGTH = 16
+
+# Set when loading config at import time.
+CONFIG_PATH_USED = None
 
 # --- Configuration Loading ---
 
@@ -60,6 +65,7 @@ def parse_size_string(size_str):
 
 def load_config(config_path=None):
     """Load server configuration from YAML file"""
+    global CONFIG_PATH_USED
     try:
         cwd_default = (Path.cwd() / "testrift_server.yaml").resolve()
 
@@ -80,6 +86,7 @@ def load_config(config_path=None):
             # Treat relative paths as relative to the current working directory
             config_path = (Path.cwd() / config_path).resolve()
         config_path = config_path.resolve()
+        CONFIG_PATH_USED = config_path
         # For the packaged default config, resolve relative paths against the working directory.
         config_dir = Path.cwd() if config_path == DEFAULT_CONFIG_PATH else config_path.parent
 
@@ -137,6 +144,7 @@ def load_config(config_path=None):
 
     except FileNotFoundError:
         print(f"Warning: Configuration file '{config_path}' not found. Using defaults.")
+        CONFIG_PATH_USED = None
         return {
             'port': 8080,
             'localhost_only': True,
@@ -162,6 +170,51 @@ DEFAULT_RETENTION_DAYS = CONFIG['default_retention_days']
 LOCALHOST_ONLY = CONFIG['localhost_only']
 ATTACHMENTS_ENABLED = CONFIG['attachments_enabled']
 ATTACHMENT_MAX_SIZE = CONFIG['attachment_max_size']
+
+# --- Server identity / config fingerprint (used to detect already-running server) ---
+
+def _testrift_config_fingerprint(config: dict) -> dict:
+    """Return a stable, JSON-serializable representation of config for hashing/comparison."""
+    return {
+        "port": int(config["port"]),
+        "localhost_only": bool(config["localhost_only"]),
+        "data_dir": str(Path(config["data_dir"]).resolve()),
+        "default_retention_days": config["default_retention_days"],
+        "attachments_enabled": bool(config["attachments_enabled"]),
+        "attachment_max_size": int(config["attachment_max_size"]),
+    }
+
+
+def _testrift_config_hash(config: dict) -> str:
+    payload = json.dumps(_testrift_config_fingerprint(config), sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _get_running_server_info(port: int) -> dict | None:
+    """Return server-info JSON if a TestRift server is running on localhost:port, else None.
+
+    Raises RuntimeError if something is listening on the port but is not a compatible TestRift server.
+    """
+    url = f"http://127.0.0.1:{port}/api/server-info"
+    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=1.5) as resp:
+            content_type = resp.headers.get("Content-Type", "")
+            raw = resp.read().decode("utf-8", errors="replace")
+            if resp.status != 200:
+                raise RuntimeError(f"Port {port} is in use but did not return 200 from /api/server-info (status={resp.status}).")
+            if "application/json" not in content_type.lower():
+                raise RuntimeError(f"Port {port} is in use but /api/server-info did not return JSON (Content-Type={content_type}).")
+            info = json.loads(raw)
+            if info.get("service") != "testrift-server":
+                raise RuntimeError(f"Port {port} is in use but /api/server-info is not a TestRift server.")
+            return info
+    except urllib.error.HTTPError as e:
+        # Something is responding on that port but not our expected endpoint.
+        raise RuntimeError(f"Port {port} is in use but /api/server-info returned HTTP {e.code}.")
+    except urllib.error.URLError:
+        # Connection refused / no listener / timeout -> treat as not running.
+        return None
 
 # --- Global state ---
 ui_clients = set()  # UI WebSocket clients for live updates
@@ -3101,6 +3154,23 @@ async def api_migrate_data_handler(request):
         }, status=500)
 
 
+async def api_server_info_handler(request):
+    """Returns server identity and config fingerprint for startup checks."""
+    try:
+        from importlib.metadata import version as _pkg_version  # py>=3.8
+        ver = _pkg_version("testrift-server")
+    except Exception:
+        ver = "unknown"
+
+    return web.json_response({
+        "service": "testrift-server",
+        "version": ver,
+        "config_path": str(CONFIG_PATH_USED) if CONFIG_PATH_USED else None,
+        "config": _testrift_config_fingerprint(CONFIG),
+        "config_hash": _testrift_config_hash(CONFIG),
+    })
+
+
 # --- Main app setup ---
 
 app = web.Application()
@@ -3137,6 +3207,7 @@ routes = [
     web.get("/api/tc-hover-history", api_tc_hover_history_handler),
     web.get("/api/run-hover-history/{group_hash}", api_run_hover_history_handler),
     web.post("/api/migrate-data", api_migrate_data_handler),
+    web.get("/api/server-info", api_server_info_handler),
 ]
 
 # Add attachment routes only if enabled
@@ -3179,6 +3250,27 @@ app.on_cleanup.append(on_cleanup)
 def main(argv=None):
     # Determine host based on configuration
     host = "127.0.0.1" if LOCALHOST_ONLY else "0.0.0.0"
+
+    # Detect already-running server on the configured port.
+    new_hash = _testrift_config_hash(CONFIG)
+    try:
+        running = _get_running_server_info(PORT)
+    except RuntimeError as e:
+        print(f"ERROR: {e}")
+        return 2
+
+    if running is not None:
+        running_hash = running.get("config_hash")
+        if running_hash == new_hash:
+            print(f"TestRift server already running on 127.0.0.1:{PORT} with identical config. Exiting.")
+            return 0
+
+        print(f"ERROR: TestRift server already running on 127.0.0.1:{PORT} but config differs.")
+        print(f"  running config_path: {running.get('config_path')}")
+        print(f"  running config_hash: {running_hash}")
+        print(f"  new     config_path: {str(CONFIG_PATH_USED) if CONFIG_PATH_USED else None}")
+        print(f"  new     config_hash: {new_hash}")
+        return 2
 
     print(f"Starting server on {host}:{PORT}")
     print(f"Default retention days: {DEFAULT_RETENTION_DAYS}")

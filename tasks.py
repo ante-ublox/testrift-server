@@ -22,14 +22,13 @@ def start(c):
         config: Path to config file
     """
     server_dir = Path(__file__).parent
-    cmd_parts = [sys.executable, "-m", "testrift_server"]
+    # Use unbuffered output so server logs stream immediately when running under invoke.
+    cmd_parts = [sys.executable, "-u", "-m", "testrift_server"]
 
     print(f"Starting server from {server_dir}...")
-    print(f"Server will be available at http://localhost:8080 (or port from config)")
-    print(f"Press Ctrl+C to stop the server")
     # Use c.cd to change directory instead of passing cwd (not supported in invoke 2.x)
     with c.cd(str(server_dir)):
-        c.run(" ".join(cmd_parts))
+        c.run(" ".join(cmd_parts), env={"PYTHONUNBUFFERED": "1"})
 
 
 @task
