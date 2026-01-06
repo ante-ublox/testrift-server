@@ -484,8 +484,10 @@ function convertToLocalTime(utcTimeString) {
             console.warn('Failed to parse time after fixing format:', fixedTimeString);
             return utcTimeString;
         }
+        // Always include milliseconds as ".xxx"
         const localTime = utcDate.toLocaleString();
-        return localTime;
+        const ms = String(utcDate.getMilliseconds()).padStart(3, '0');
+        return `${localTime}.${ms}`;
     } catch (e) {
         console.warn('Failed to parse time:', utcTimeString, e);
         return utcTimeString;
