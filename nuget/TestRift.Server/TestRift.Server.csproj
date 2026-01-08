@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <!-- Read version from VERSION file using MSBuild inline task -->
   <PropertyGroup>
     <_VersionFile>$(MSBuildThisFileDirectory)..\..\VERSION</_VersionFile>
@@ -30,15 +29,52 @@
     <PackageProjectUrl>https://github.com/testrift/testrift-server</PackageProjectUrl>
     <PackageTags>testrift;server;testing;logging;ci</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <IncludeSymbols>true</IncludeSymbols>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <!-- Don't include build output (no .dll needed - this package only contains Python files and scripts) -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <!-- Suppress warnings about .ps1 files, missing lib/ref assemblies, and no source files (this package has no .NET assemblies) -->
+    <NoWarn>$(NoWarn);NU5110;NU5111;NU5128;CS2008</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Include Python server source files -->
+    <!-- Include Python server source files and wrapper scripts in tools/ folder -->
+    <!-- tools/ folder is always extracted to NuGet cache and accessible at runtime -->
+    <!-- This prevents files from being copied to project root while remaining accessible -->
+    <Content Include="..\..\src\testrift_server\**\*">
+      <PackagePath>tools/server/testrift_server/%(RecursiveDir)%(Filename)%(Extension)</PackagePath>
+    </Content>
+    <Content Include="testrift-server.bat">
+      <PackagePath>tools/testrift-server.bat</PackagePath>
+    </Content>
+    <Content Include="testrift-server.sh">
+      <PackagePath>tools/testrift-server.sh</PackagePath>
+    </Content>
+    <Content Include="testrift-server.ps1">
+      <PackagePath>tools/testrift-server.ps1</PackagePath>
+    </Content>
+    <!-- Also include in contentFiles for PackageReference projects (metadata only, files not copied) -->
+    <Content Include="..\..\src\testrift_server\**\*">
+      <PackagePath>contentFiles/any/any/server/testrift_server/%(RecursiveDir)%(Filename)%(Extension)</PackagePath>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+      <BuildAction>None</BuildAction>
+    </Content>
+    <Content Include="testrift-server.bat">
+      <PackagePath>contentFiles/any/any/testrift-server.bat</PackagePath>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+      <BuildAction>None</BuildAction>
+    </Content>
+    <Content Include="testrift-server.sh">
+      <PackagePath>contentFiles/any/any/testrift-server.sh</PackagePath>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+      <BuildAction>None</BuildAction>
+    </Content>
+    <Content Include="testrift-server.ps1">
+      <PackagePath>contentFiles/any/any/testrift-server.ps1</PackagePath>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+      <BuildAction>None</BuildAction>
+    </Content>
+    <!-- Also include in content/ for packages.config compatibility (old projects) -->
     <Content Include="..\..\src\testrift_server\**\*" PackagePath="content\server\testrift_server\%(RecursiveDir)%(Filename)%(Extension)" />
-    <!-- Include wrapper scripts -->
     <Content Include="testrift-server.bat" PackagePath="content\testrift-server.bat" />
     <Content Include="testrift-server.sh" PackagePath="content\testrift-server.sh" />
     <Content Include="testrift-server.ps1" PackagePath="content\testrift-server.ps1" />
@@ -49,4 +85,3 @@
   </ItemGroup>
 
 </Project>
-

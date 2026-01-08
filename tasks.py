@@ -107,7 +107,7 @@ def publish_nuget(c, source="https://api.nuget.org/v3/index.json", api_key=None)
         raise RuntimeError("No .nupkg files found. Run 'inv build-nuget' first.")
 
     for nupkg in nupkg_files:
-        cmd = f"dotnet nuget push {nupkg} --source {source}"
+        cmd = f'dotnet nuget push "{nupkg}" --source {source}'
         if api_key:
             cmd += f" --api-key {api_key}"
         c.run(cmd)
