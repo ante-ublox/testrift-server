@@ -43,6 +43,9 @@
     <Content Include="..\..\src\testrift_server\**\*">
       <PackagePath>tools/server/testrift_server/%(RecursiveDir)%(Filename)%(Extension)</PackagePath>
     </Content>
+    <Content Include="..\..\requirements.txt">
+      <PackagePath>tools/server/requirements.txt</PackagePath>
+    </Content>
     <Content Include="testrift-server.bat">
       <PackagePath>tools/testrift-server.bat</PackagePath>
     </Content>
