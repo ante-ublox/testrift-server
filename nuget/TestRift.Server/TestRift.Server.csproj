@@ -70,8 +70,8 @@
     </Content>
     <!-- Include LICENSE -->
     <None Include="..\..\LICENSE" Pack="true" PackagePath="LICENSE" />
-    <!-- Include README -->
-    <None Include="..\..\README.md" Pack="true" PackagePath="README.md" />
+    <!-- Include NuGet-specific README -->
+    <None Include="README.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 
 </Project>
