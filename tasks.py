@@ -9,7 +9,9 @@ except ImportError as e:  # pragma: no cover
     raise RuntimeError(
         "Invoke is required to run these developer tasks. Install it with: pip install invoke"
     ) from e
+import os
 import shutil
+import tempfile
 from pathlib import Path
 import sys
 
@@ -24,6 +26,49 @@ def test(c):
         if req_dev.exists():
             c.run(f"{sys.executable} -m pip install -r tests/requirements.txt")
         c.run(f"{sys.executable} -m pytest")
+
+
+@task
+def test_bootstrap(c):
+    """Smoke test the bootstrap launchers (.sh/.bat)."""
+    server_dir = Path(__file__).parent
+    nuget_dir = server_dir / "nuget" / "TestRift.Server"
+    build_nuget(c)
+    packages = sorted((nuget_dir / "bin" / "Release").glob("*.nupkg"), key=lambda p: p.stat().st_mtime)
+    if not packages:
+        raise RuntimeError("No NuGet packages found after build. Did build-nuget run?")
+    package_path = packages[-1]
+
+    script_name = "testrift-server.bat" if sys.platform.startswith("win") else "testrift-server.sh"
+    interpreter_rel = Path("Scripts/python.exe") if sys.platform.startswith("win") else Path("bin/python")
+
+    with tempfile.TemporaryDirectory(prefix="testrift-bootstrap-") as tmp_root:
+        tmp_dir = Path(tmp_root)
+        shutil.unpack_archive(str(package_path), tmp_dir, format="zip")
+        tools_dir = tmp_dir / "tools"
+        if not tools_dir.exists():
+            raise RuntimeError(f"Extracted package missing tools directory: {tools_dir}")
+        script_path = tools_dir / script_name
+        if not script_path.exists():
+            raise FileNotFoundError(f"Launcher not found in package: {script_path}")
+        if script_path.suffix == ".sh":
+            os.chmod(script_path, 0o755)
+
+        env = os.environ.copy()
+        env["TESTRIFT_BOOTSTRAP_TEST"] = "1"
+        venv_dir = tools_dir / ".venv"
+        marker = venv_dir / ".requirements_installed"
+        expected_python = venv_dir / interpreter_rel
+
+        command = f'"{script_path}"' if script_path.suffix == ".bat" else f"./{script_path.name}"
+        print(f"Running {script_path.name} from extracted package {package_path.name}...")
+        with c.cd(str(tools_dir)):
+            c.run(command, env=env)
+
+        if not expected_python.exists():
+            raise RuntimeError(f"Virtual environment missing interpreter: {expected_python}")
+        if not marker.exists():
+            raise RuntimeError(f"Bootstrap script did not create marker file: {marker}")
 
 
 @task
@@ -84,6 +129,16 @@ def publish(c, repository="pypi"):
 
 
 @task
+def clean_nuget(c):
+    """Remove NuGet build artifacts (bin/, obj/)."""
+    server_dir = Path(__file__).parent
+    nuget_dir = server_dir / "nuget" / "TestRift.Server"
+    for p in [nuget_dir / "bin", nuget_dir / "obj"]:
+        if p.exists():
+            shutil.rmtree(p, ignore_errors=True)
+
+
+@task(pre=[clean_nuget])
 def build_nuget(c):
     """Build the NuGet package for testrift-server. Requires: .NET SDK."""
     server_dir = Path(__file__).parent
